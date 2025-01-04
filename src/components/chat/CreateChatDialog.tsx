@@ -1,69 +1,62 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Button } from "../ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "../ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { ScrollArea } from "../ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Check, Users } from "lucide-react";
+import { useChat } from "@/contexts/ChatContext";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface User {
   id: string;
-  name: string;
-  avatar?: string;
-  email: string;
+  username: string;
+  avatar_url?: string;
+  full_name?: string;
 }
 
 interface CreateChatDialogProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-  onCreatePersonalChat?: (userId: string) => void;
-  onCreateGroupChat?: (name: string, userIds: string[]) => void;
-  users?: User[];
 }
 
-const defaultUsers: User[] = [
-  {
-    id: "1",
-    name: "Alice Johnson",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Alice",
-    email: "alice@example.com",
-  },
-  {
-    id: "2",
-    name: "Bob Smith",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Bob",
-    email: "bob@example.com",
-  },
-  {
-    id: "3",
-    name: "Carol White",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Carol",
-    email: "carol@example.com",
-  },
-];
-
 const CreateChatDialog = ({
-  open = true,
+  open = false,
   onOpenChange = () => {},
-  onCreatePersonalChat = () => {},
-  onCreateGroupChat = () => {},
-  users = defaultUsers,
 }: CreateChatDialogProps) => {
   const [selectedTab, setSelectedTab] = React.useState("personal");
   const [selectedUsers, setSelectedUsers] = React.useState<string[]>([]);
   const [groupName, setGroupName] = React.useState("");
+  const [users, setUsers] = React.useState<User[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const { createPersonalChat, createGroupChat } = useChat();
+  const { user: currentUser } = useAuth();
 
-  const handleUserSelect = (userId: string) => {
+  useEffect(() => {
+    const fetchUsers = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .neq("id", currentUser?.id);
+
+      if (!error && data) {
+        setUsers(data);
+      }
+      setLoading(false);
+    };
+
+    if (open) {
+      fetchUsers();
+    }
+  }, [open, currentUser?.id]);
+
+  const handleUserSelect = async (userId: string) => {
     if (selectedTab === "personal") {
-      onCreatePersonalChat(userId);
+      await createPersonalChat(userId);
       onOpenChange(false);
     } else {
       setSelectedUsers((prev) =>
@@ -74,18 +67,15 @@ const CreateChatDialog = ({
     }
   };
 
-  const handleCreateGroup = () => {
+  const handleCreateGroup = async () => {
     if (groupName && selectedUsers.length > 0) {
-      onCreateGroupChat(groupName, selectedUsers);
+      await createGroupChat(groupName, selectedUsers);
       onOpenChange(false);
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>
-        <Button>New Chat</Button>
-      </DialogTrigger>
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
           <DialogTitle>Create New Chat</DialogTitle>
@@ -104,28 +94,43 @@ const CreateChatDialog = ({
 
           <TabsContent value="personal" className="mt-4">
             <ScrollArea className="h-[400px] pr-4">
-              {users.map((user) => (
-                <div
-                  key={user.id}
-                  className="flex items-center justify-between p-4 hover:bg-accent rounded-lg cursor-pointer"
-                  onClick={() => handleUserSelect(user.id)}
-                >
-                  <div className="flex items-center gap-3">
-                    <Avatar>
-                      <AvatarImage src={user.avatar} />
-                      <AvatarFallback>
-                        {user.name.slice(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="font-medium">{user.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {user.email}
-                      </p>
+              {loading ? (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-muted-foreground">Loading users...</p>
+                </div>
+              ) : users.length === 0 ? (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-muted-foreground">No users found</p>
+                </div>
+              ) : (
+                users.map((user) => (
+                  <div
+                    key={user.id}
+                    className="flex items-center justify-between p-4 hover:bg-accent rounded-lg cursor-pointer"
+                    onClick={() => handleUserSelect(user.id)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Avatar>
+                        <AvatarImage
+                          src={
+                            user.avatar_url ||
+                            `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`
+                          }
+                        />
+                        <AvatarFallback>
+                          {user.username?.slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium">{user.username}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {user.full_name || ""}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </ScrollArea>
           </TabsContent>
 
@@ -143,31 +148,46 @@ const CreateChatDialog = ({
             <div className="space-y-2">
               <Label>Select Members</Label>
               <ScrollArea className="h-[300px] pr-4">
-                {users.map((user) => (
-                  <div
-                    key={user.id}
-                    className="flex items-center justify-between p-4 hover:bg-accent rounded-lg cursor-pointer"
-                    onClick={() => handleUserSelect(user.id)}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Avatar>
-                        <AvatarImage src={user.avatar} />
-                        <AvatarFallback>
-                          {user.name.slice(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium">{user.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {user.email}
-                        </p>
-                      </div>
-                    </div>
-                    {selectedUsers.includes(user.id) && (
-                      <Check className="h-5 w-5 text-primary" />
-                    )}
+                {loading ? (
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-muted-foreground">Loading users...</p>
                   </div>
-                ))}
+                ) : users.length === 0 ? (
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-muted-foreground">No users found</p>
+                  </div>
+                ) : (
+                  users.map((user) => (
+                    <div
+                      key={user.id}
+                      className="flex items-center justify-between p-4 hover:bg-accent rounded-lg cursor-pointer"
+                      onClick={() => handleUserSelect(user.id)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Avatar>
+                          <AvatarImage
+                            src={
+                              user.avatar_url ||
+                              `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`
+                            }
+                          />
+                          <AvatarFallback>
+                            {user.username?.slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="font-medium">{user.username}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {user.full_name || ""}
+                          </p>
+                        </div>
+                      </div>
+                      {selectedUsers.includes(user.id) && (
+                        <Check className="h-5 w-5 text-primary" />
+                      )}
+                    </div>
+                  ))
+                )}
               </ScrollArea>
             </div>
 

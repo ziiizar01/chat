@@ -9,8 +9,8 @@ import SignupPage from "./pages/auth/SignupPage";
 
 function App() {
   return (
-    <Suspense fallback={<p>Loading...</p>}>
-      <AuthProvider>
+    <AuthProvider>
+      <Suspense fallback={<p>Loading...</p>}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
@@ -24,8 +24,8 @@ function App() {
           />
         </Routes>
         <Toaster />
-      </AuthProvider>
-    </Suspense>
+      </Suspense>
+    </AuthProvider>
   );
 }
 
