@@ -4,59 +4,49 @@ import MessageInput from "./MessageInput";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Button } from "../ui/button";
 import { Phone, Video, MoreVertical } from "lucide-react";
+import { useChat } from "@/contexts/ChatContext";
 
-interface Participant {
-  id: string;
-  name: string;
-  avatar: string;
-  online: boolean;
-}
+const ConversationView = () => {
+  const { currentChat, messages, sendMessage } = useChat();
 
-interface ConversationViewProps {
-  participant?: Participant;
-  onCall?: () => void;
-  onVideoCall?: () => void;
-  onSendMessage?: (message: string) => void;
-  onAttachFile?: (file: File) => void;
-}
+  if (!currentChat) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-background text-muted-foreground">
+        Select a chat to start messaging
+      </div>
+    );
+  }
 
-const defaultParticipant: Participant = {
-  id: "1",
-  name: "Alice Johnson",
-  avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Alice",
-  online: true,
-};
-
-const ConversationView = ({
-  participant = defaultParticipant,
-  onCall = () => {},
-  onVideoCall = () => {},
-  onSendMessage = () => {},
-  onAttachFile = () => {},
-}: ConversationViewProps) => {
   return (
     <div className="flex flex-col h-full w-full bg-background">
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 border-b">
         <div className="flex items-center space-x-4">
           <Avatar>
-            <AvatarImage src={participant.avatar} alt={participant.name} />
+            <AvatarImage
+              src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${currentChat.id}`}
+            />
             <AvatarFallback>
-              {participant.name.slice(0, 2).toUpperCase()}
+              {(currentChat.name || "Chat").slice(0, 2).toUpperCase()}
             </AvatarFallback>
           </Avatar>
           <div>
-            <h2 className="text-lg font-semibold">{participant.name}</h2>
+            <h2 className="text-lg font-semibold">
+              {currentChat.name ||
+                (currentChat.type === "personal"
+                  ? "Personal Chat"
+                  : "Group Chat")}
+            </h2>
             <p className="text-sm text-muted-foreground">
-              {participant.online ? "Online" : "Offline"}
+              {currentChat.participants?.length || 0} participants
             </p>
           </div>
         </div>
         <div className="flex items-center space-x-2">
-          <Button variant="ghost" size="icon" onClick={onCall}>
+          <Button variant="ghost" size="icon">
             <Phone className="h-5 w-5" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={onVideoCall}>
+          <Button variant="ghost" size="icon">
             <Video className="h-5 w-5" />
           </Button>
           <Button variant="ghost" size="icon">
@@ -67,11 +57,11 @@ const ConversationView = ({
 
       {/* Message List */}
       <div className="flex-1 overflow-hidden">
-        <MessageList />
+        <MessageList messages={messages} />
       </div>
 
       {/* Message Input */}
-      <MessageInput onSendMessage={onSendMessage} onAttachFile={onAttachFile} />
+      <MessageInput onSendMessage={sendMessage} />
     </div>
   );
 };
