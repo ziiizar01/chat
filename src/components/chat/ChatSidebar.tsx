@@ -14,6 +14,14 @@ const ChatSidebar = ({ onNewChat = () => {} }: ChatSidebarProps) => {
   const { profile, signOut } = useAuth();
   const { currentChat, setCurrentChat, chats } = useChat();
 
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
+  };
+
   return (
     <div className="w-[320px] h-full border-r flex flex-col bg-background">
       <div className="p-4 border-b flex items-center justify-between">
@@ -30,7 +38,7 @@ const ChatSidebar = ({ onNewChat = () => {} }: ChatSidebarProps) => {
           </div>
         </div>
         <div className="flex gap-1">
-          <Button variant="ghost" size="icon" onClick={() => signOut()}>
+          <Button variant="ghost" size="icon" onClick={handleSignOut}>
             <LogOut className="h-5 w-5" />
           </Button>
           <Button variant="ghost" size="icon">
